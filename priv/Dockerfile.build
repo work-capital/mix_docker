@@ -19,10 +19,12 @@ WORKDIR /opt/app
 
 ENV MIX_ENV=prod
 
-# Cache elixir deps
-COPY mix.exs mix.lock ./
-RUN mix do deps.get, deps.compile
-
+# Move this line before RUN mix do deps.get, deps.compile for umbrella project compatibility
 COPY . .
+
+# Cache elixir deps
+# COPY mix.exs mix.lock ./   -- REMOVED for umbrella project compatibility
+
+RUN mix do deps.get, deps.compile
 
 RUN mix release --env=prod --verbose
