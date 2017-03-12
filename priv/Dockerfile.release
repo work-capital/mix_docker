@@ -10,6 +10,6 @@ ENV PORT=4000 MIX_ENV=prod REPLACE_OS_VARS=true SHELL=/bin/sh
 ADD ${APP}.tar.gz ./
 RUN chown -R default ./releases
 
-USER default
+USER root
 
 ENTRYPOINT ["/opt/app/bin/${APP}"]
