@@ -10,6 +10,9 @@ RUN \
       git make g++ \
       elixir@edge && \
     rm -rf /var/cache/apk/*
+#instal openssl-dev
+RUN apk add --update openssl-dev && \
+    rm -rf /var/cache/apk/*
 
 # Install Hex+Rebar
 RUN mix local.hex --force && \
