@@ -11,7 +11,7 @@ RUN \
       elixir@edge && \
     rm -rf /var/cache/apk/*
 #instal openssl-dev
-RUN apk add --update openssl-dev && \
+RUN apk add --update openssl && \
     rm -rf /var/cache/apk/*
 
 # Install Hex+Rebar
