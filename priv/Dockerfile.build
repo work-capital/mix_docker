@@ -28,6 +28,6 @@ COPY . .
 # Cache elixir deps
 # COPY mix.exs mix.lock ./   -- REMOVED for umbrella project compatibility
 
-RUN mix do deps.get, deps.compile
+RUN mix deps.compile
 
 RUN mix release --env=prod --verbose
