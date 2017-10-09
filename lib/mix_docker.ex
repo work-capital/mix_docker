@@ -5,6 +5,8 @@ defmodule MixDocker do
   @dockerfile_build   Application.get_env(:mix_docker, :dockerfile_build, "Dockerfile.build")
   @dockerfile_release Application.get_env(:mix_docker, :dockerfile_release, "Dockerfile.release")
 
+  @default_tag_template "{mix-version}.{git-count}-{git-sha}"
+
   def init(args) do
     # copy .dockerignore
     unless File.exists?(".dockerignore") do
@@ -23,9 +25,8 @@ defmodule MixDocker do
   end
 
   def release(args) do
-    project = Mix.Project.get.project
-    app     = project[:app]
-    version = project[:version]
+    app     = app_name()
+    version = app_version() || release_version()
 
     cid = "mix_docker-#{:rand.uniform(1000000)}"
 
@@ -42,19 +43,25 @@ defmodule MixDocker do
     Mix.shell.info "  docker run -it --rm #{image(:release)} foreground"
   end
 
-  def publish(_args) do
-    name = image(:version)
+  def publish(args) do
+    {opts, args} = extract_opts(args)
+    publish(args, opts)
+  end
+  def publish(args, opts) do
+    name = image(make_image_tag(opts[:tag]))
 
     docker :tag, image(:release), name
-    docker :push, name
+    docker :push, name, args
 
     Mix.shell.info "Docker image #{name} has been successfully created"
   end
 
   def shipit(args) do
+    {opts, args} = extract_opts(args)
+
     build(args)
     release(args)
-    publish(args)
+    publish(args, opts)
   end
 
   def customize([]) do
@@ -62,32 +69,52 @@ defmodule MixDocker do
     try_copy_dockerfile @dockerfile_release
   end
 
-  defp git_head_sha do
-    {sha, 0} = System.cmd "git", ["rev-parse", "HEAD"]
-    String.slice(sha, 0, 10)
-  end
-
-  defp git_commit_count do
-    {count, 0} = System.cmd "git", ["rev-list", "--count", "HEAD"]
-    String.trim(count)
-  end
-
   defp image(tag) do
-    image_name() <> ":" <> to_string(image_tag(tag))
+    image_name() <> ":" <> to_string(tag)
   end
 
   defp image_name do
-    Application.get_env(:mix_docker, :image) || to_string(Mix.Project.get.project[:app])
+    Application.get_env(:mix_docker, :image) || to_string(app_name())
   end
 
-  defp image_tag(:version) do
-    version = Mix.Project.get.project[:version]
-    count   = git_commit_count()
-    sha     = git_head_sha()
-
-    "#{version}.#{count}-#{sha}"
+  defp make_image_tag(tag) do
+    template = tag || Application.get_env(:mix_docker, :tag) || @default_tag_template
+    Regex.replace(~r/\{([a-z0-9-]+)\}/, template, fn _, x -> tagvar(x) end)
   end
-  defp image_tag(tag), do: tag
+
+  defp tagvar("mix-version") do
+    app_version() || tagvar("rel-version")
+  end
+
+  defp tagvar("rel-version") do
+    release_version()
+  end
+
+  defp tagvar("git-sha"), do: tagvar("git-sha10")
+  defp tagvar("git-sha" <> length) do
+    {sha, 0} = System.cmd("git", ["rev-parse", "HEAD"])
+    String.slice(sha, 0, String.to_integer(length))
+  end
+
+  defp tagvar("git-branch") do
+    {branch, 0} = System.cmd("git", ["rev-parse", "--abbrev-ref", "HEAD"])
+    String.trim(branch)
+  end
+
+  defp tagvar("git-count") do
+    {count, 0} = System.cmd("git", ["rev-list", "--count", "HEAD"])
+    String.trim(count)
+  end
+
+  defp tagvar(other) do
+    raise "Image tag variable #{other} is not defined"
+  end
+
+  # Simple recursive extraction instead of OptionParser to keep other (docker) flags intact
+  defp extract_opts(args), do: extract_opts([], args, [])
+  defp extract_opts(head, ["--tag", tag | tail], opts), do: extract_opts(head, tail, Keyword.put(opts, :tag, tag))
+  defp extract_opts(head, [], opts), do: {opts, head}
+  defp extract_opts(head, [h | tail], opts), do: extract_opts(head ++ [h], tail, opts)
 
 
   defp docker(:cp, cid, source, dest) do
@@ -106,12 +133,12 @@ defmodule MixDocker do
     system! "docker", ["tag", image, tag]
   end
 
-  defp docker(:rm, cid) do
-    system "docker", ["rm", "-f", cid]
+  defp docker(:push, image, args) do
+    system! "docker", ["push"] ++ args ++ [image]
   end
 
-  defp docker(:push, image) do
-    system! "docker", ["push", image]
+  defp docker(:rm, cid) do
+    system "docker", ["rm", "-f", cid]
   end
 
   defp with_dockerfile(name, fun) do
@@ -128,7 +155,7 @@ defmodule MixDocker do
   end
 
   defp copy_dockerfile(name) do
-    app = Mix.Project.get.project[:app]
+    app = app_name()
     content = [@dockerfile_path, name]
       |> Path.join
       |> File.read!
@@ -151,5 +178,19 @@ defmodule MixDocker do
 
   defp system!(cmd, args) do
     {_, 0} = system(cmd, args)
+  end
+
+  defp app_name do
+    release_name_from_cwd = File.cwd! |> Path.basename |> String.replace("-", "_")
+    Mix.Project.get.project[:app] || release_name_from_cwd
+  end
+
+  defp app_version do
+    Mix.Project.get.project[:version]
+  end
+
+  defp release_version do
+    {:ok, rel} = Mix.Releases.Release.get(:default)
+    rel.version
   end
 end

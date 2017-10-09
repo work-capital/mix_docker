@@ -10,18 +10,18 @@ and [distillery](https://github.com/bitwalker/distillery) releases.
 
   1. Add `mix_docker` to your list of dependencies in `mix.exs`:
 
-    ```elixir
-    def deps do
-      [{:mix_docker, "~> 0.3.0"}]
-    end
-    ```
+```elixir
+def deps do
+  [{:mix_docker, "~> 0.5.0"}]
+end
+```
 
   2. Configure Docker image name
 
-    ```elixir
-    # config/config.exs
-    config :mix_docker, image: "recruitee/hello"
-    ```
+```elixir
+# config/config.exs
+config :mix_docker, image: "recruitee/hello"
+```
 
   3. Run `mix docker.init` to init distillery release configuration
 
@@ -70,6 +70,48 @@ config :hello, Hello.Mailer,
   api_key: "${MAILGUN_API_KEY}"
 ```
 
+#### How to configure the image tag?
+
+By default, the image tag uses the following format: `{mix-version}.{git-count}-{git-sha}`
+You can provide your own tag template in `config/prod.exs` like this:
+
+```elixir
+# config/config.exs
+config :mix_docker,
+  tag: "dev_{mix-version}_{git-sha}"
+```
+
+Additionally, you can pass the tag as an argument to `mix docker.publish` and `mix docker.shipit`:
+
+```bash
+mix docker.publish --tag "{mix-version}-{git-branch}"
+```
+
+See below for a list of possible variables
+
+| Variable        | Description                            |
+|-----------------|----------------------------------------|
+| `{mix-version}` | Current project version from `mix.exs` |
+| `{rel-version}` | Default distillery release version     |
+| `{git-sha}`     | Git commit SHA (10 characters)         |
+| `{git-shaN}`    | Git commit SHA (N characters)          |
+| `{git-count}`   | Git commit count                       |
+| `{git-branch}`  | Git branch                             |
+
+
+#### What version of Erlang/Elixir is installed by default?
+The default dockerfiles are based on [bitwalker/alpine-erlang](https://github.com/bitwalker/alpine-erlang) and elixir installed from [apk repository](https://pkgs.alpinelinux.org/packages?name=elixir&branch=&repo=&arch=&maintainer=)
+
+The following table summarizes the default versions:
+
+| mix_docker version   | alpine   | erlang   | elixir                             |
+|----------------------|----------|----------|------------------------------------|
+| up to `0.3.2`        | `3.4`    | `18.3`   | `elixir@edge` at the time of build |
+| `0.4.0`              | `3.5`    | `19.2`   | `elixir@edge=1.4.1-r0`             |
+| `0.4.1`              | `3.5`    | `19.2`   | `elixir@edge=1.4.2-r0`             |
+
+Please note that you can use any version you want by customizing your dockerfiles. See `mix docker.customize` for reference.
+
 
 #### How to attach to running app using remote_console?
 
@@ -80,6 +122,7 @@ where `CID` is the app container IO and `hello` is the name of your app.
 docker exec -it CID /opt/app/bin/hello remote_console
 ```
 
+#### [Using alternative Dockerfiles](https://github.com/Recruitee/mix_docker/wiki/Alternative-Dockerfiles)
 
 #### How to install additional packages into build/release image?
 
@@ -102,6 +145,29 @@ config :mix_docker,
 
 The path is relative to the project root, and the files must be located inside
 the root.
+
+
+#### How to configure an Umbrella app?
+
+The default build Dockerfile does not handle the installation of umbrella app
+deps, so you will need to modify it to match the structure of your project.
+
+Run `mix docker.customize` and then edit `Dockerfile.build` to copy across
+each of your umbrella's applications.
+
+```dockerfile
+COPY mix.exs mix.lock ./
+
+RUN mkdir -p apps/my_first_app/config
+COPY apps/my_first_app/mix.exs apps/my_first_app/
+COPY apps/my_first_app/config/* apps/my_first_app/config/
+
+RUN mkdir -p apps/my_second_app/config
+COPY apps/my_second_app/mix.exs apps/my_second_app/
+COPY apps/my_second_app/config/* apps/my_second_app/config/
+
+# etc.
+```
 
 
 #### How to configure a Phoenix app?
