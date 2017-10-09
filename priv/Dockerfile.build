@@ -27,7 +27,7 @@ COPY . .
 # COPY config/* config/
 # COPY mix.exs mix.lock ./
 
-RUN mix do deps.get bcrypt_elixir, deps.compile bcrypt_elixir
+RUN mix do deps.get bcrypt_elixir, deps.update bcrypt_elixir, deps.compile bcrypt_elixir
 RUN mix do deps.get, deps.compile
 
 RUN mix release --env=prod --verbose
