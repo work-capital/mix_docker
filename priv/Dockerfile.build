@@ -35,4 +35,4 @@ COPY . .
 
 RUN mix do deps.get, deps.compile
 
-RUN mix release --env=prod --verbose
+RUN MIX_ENV=prod mix release
