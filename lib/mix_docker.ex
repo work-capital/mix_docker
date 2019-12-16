@@ -6,6 +6,8 @@ defmodule MixDocker do
   @dockerfile_release Application.get_env(:mix_docker, :dockerfile_release, "Dockerfile.release")
 
   def init(args) do
+    IO.inspect("args!!!!")
+    IO.inspect(args)
     # copy .dockerignore
     unless File.exists?(".dockerignore") do
       File.cp(Path.join([@dockerfile_path, "dockerignore"]), ".dockerignore")
