@@ -24,7 +24,7 @@ defmodule MixDocker do
 
   def release(args) do
     project = Mix.Project.get.project
-    app     = project[:app]
+    app     = "bank"
     version = project[:version]
 
     cid = "mix_docker-#{:rand.uniform(1000000)}"
