@@ -128,11 +128,10 @@ defmodule MixDocker do
   end
 
   defp copy_dockerfile(name) do
-    app = Mix.Project.get.project[:app]
     content = [@dockerfile_path, name]
       |> Path.join
       |> File.read!
-      |> String.replace("${APP}", to_string(app))
+      |> String.replace("${APP}", "bank-1.0")
     File.write!(name, content)
   end
 
